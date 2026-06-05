@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor · Modo Dios</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/common.css">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        /* ═══ LAYOUT ═══ */
+        .app-wrap { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--bg-deep); color: var(--text); }
+
+        /* ═══ HEADER ═══ */
+        .app-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 9px 18px;
+            background: linear-gradient(90deg, rgba(8,7,16,0.99) 0%, rgba(16,12,28,0.99) 100%);
+            border-bottom: 1px solid rgba(255,217,102,0.15);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.6);
+            flex-shrink: 0;
+        }
+        .app-header h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px; letter-spacing: .2em;
+            background: linear-gradient(90deg, #ffd966, #ff9f43);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+        .app-header-sub { font-size: 10px; color: var(--text-muted); letter-spacing: .08em; display: block; margin-top: 1px; }
+
+        /* ═══ TOOLBAR ═══ */
+        .toolbar {
+            display: flex; gap: 6px; align-items: center;
+            padding: 7px 12px;
+            background: rgba(10,9,20,0.99);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex-wrap: wrap; flex-shrink: 0;
+        }
+        .tool-group {
+            display: flex; gap: 1px;
+            background: rgba(255,255,255,0.03);
+            padding: 3px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .tool-group label {
+            cursor: pointer; padding: 5px 10px; font-size: 11.5px;
+            border-radius: 4px; color: var(--text-muted);
+            transition: all 0.14s ease;
+            display: flex; align-items: center; gap: 4px;
+            user-select: none;
+        }
+        .tool-group label:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+        .tool-group input[type="radio"] { display: none; }
+        .tool-group input[type="radio"]:checked + span { color: #ffd966; font-weight: 700; text-shadow: 0 0 8px rgba(255,217,102,0.4); }
+        .tool-group label:has(input[type="radio"]:checked) { background: rgba(255,217,102,0.09); }
+
+        .toolbar input[type="number"] {
+            width: 42px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e0dff0; border-radius: 4px; padding: 4px 6px;
+            font-size: 12px; text-align: center; outline: none;
+        }
+        .toolbar input[type="number"]:focus { border-color: rgba(255,217,102,0.35); }
+
+        /* ═══ MAIN CONTENT ═══ */
+        .main-content { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+        /* ═══ SIDEBARS ═══ */
+        .sidebar {
+            width: 268px; flex-shrink: 0;
+            background: rgba(9,8,18,0.99);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            display: flex; flex-direction: column;
+            overflow-y: auto; overflow-x: hidden;
+        }
+        .sidebar::-webkit-scrollbar { width: 3px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        .sidebar-right { border-left: 1px solid rgba(255,255,255,0.06); border-right: none; }
+
+        .panel { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .panel-title {
+            font-size: 10px; text-transform: uppercase;
+            letter-spacing: .15em; font-weight: 700;
+            color: rgba(232,200,74,0.6);
+            margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .panel-title-left { display: flex; align-items: center; gap: 7px; }
+        .panel-title-left::before {
+            content: ''; display: inline-block;
+            width: 2px; height: 10px;
+            background: linear-gradient(180deg, #ffd966, #ff9f43);
+            border-radius: 2px; flex-shrink: 0;
+        }
+
+        /* ═══ MAP AREA ═══ */
+        .map-area {
+            flex: 1; overflow: auto; position: relative;
+            background:
+                radial-gradient(ellipse at 28% 38%, rgba(28,18,60,0.45) 0%, transparent 55%),
+                radial-gradient(ellipse at 72% 68%, rgba(12,30,50,0.35) 0%, transparent 50%),
+                #040407;
+            display: flex; justify-content: center; align-items: flex-start;
+            padding: 20px;
+        }
+        .map-area::-webkit-scrollbar { width: 6px; height: 6px; }
+        .map-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        .grid {
+            display: grid; gap: 1px;
+            background-color: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,217,102,0.12);
+            border-radius: 2px;
+            box-shadow: 0 0 60px rgba(0,0,0,0.9), 0 0 120px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
+
+        /* ═══ CELLS ═══ */
+        .cell {
+            display: flex; align-items: center; justify-content: center;
+            cursor: crosshair; user-select: none;
+            transition: filter 0.07s ease;
+            position: relative;
+        }
+        .cell:hover { filter: brightness(1.4); z-index: 2; }
+
+        .cell.reachable {
+            box-shadow: inset 0 0 0 2px rgba(0,230,255,0.65), inset 0 0 8px rgba(0,200,255,0.12);
+            background-color: rgba(0,210,255,0.1) !important;
+            cursor: pointer;
+        }
+        .cell.reachable:hover {
+            background-color: rgba(0,225,255,0.26) !important;
+            transform: scale(1.05); z-index: 6;
+            box-shadow: inset 0 0 0 2px rgba(0,245,255,0.95), 0 0 10px rgba(0,210,255,0.4);
+        }
+        .cell.in-range {
+            box-shadow: inset 0 0 0 2px rgba(255,80,100,0.55), inset 0 0 7px rgba(255,50,80,0.08);
+            background-color: rgba(255,60,80,0.07) !important;
+        }
+        .cell.brush-preview-destroy {
+            box-shadow: inset 0 0 0 2px #ff4757, inset 0 0 10px rgba(255,71,87,0.3) !important;
+            background-color: rgba(255,71,87,0.2) !important;
+        }
+        .cell.brush-preview-repair {
+            box-shadow: inset 0 0 0 2px #2ed573, inset 0 0 10px rgba(46,213,115,0.3) !important;
+            background-color: rgba(46,213,115,0.15) !important;
+        }
+        .cell.destroyed-cell { opacity: 0.35; }
+
+        /* ═══ LOG ═══ */
+        .log-container {
+            flex: 1; background: rgba(0,0,0,0.28);
+            padding: 7px 9px; font-family: 'Courier New', monospace; font-size: 10.5px;
+            overflow-y: auto; max-height: 190px; border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.05); line-height: 1.5;
+        }
+        .log-container::-webkit-scrollbar { width: 3px; }
+        .log-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); }
+        .log-entry { margin-bottom: 2px; color: rgba(180,185,210,0.45); }
+        .log-entry.destroy { color: #ff6b7a; }
+        .log-entry.repair  { color: #5eeaaa; }
+        .log-entry.system  { color: #60b8ff; }
+
+        /* ═══ CHARACTER CARDS ═══ */
+        .char-card {
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.07);
+            padding: 8px 10px; margin-bottom: 5px; border-radius: 6px;
+            cursor: pointer; display: flex; gap: 9px; align-items: center;
+            transition: all 0.16s ease;
+        }
+        .char-card:hover { border-color: rgba(255,217,102,0.28); background: rgba(255,217,102,0.04); transform: translateX(2px); }
+        .char-card.selected {
+            border-color: rgba(255,217,102,0.55);
+            background: rgba(255,217,102,0.07);
+            box-shadow: 0 0 14px rgba(255,217,102,0.08), inset 0 0 0 1px rgba(255,217,102,0.12);
+        }
+        .char-info { flex: 1; min-width: 0; }
+        .char-name { font-weight: 700; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+        .char-pos { font-size: 10px; color: var(--text-muted); margin-bottom: 5px; font-family: monospace; }
+        .pm-text { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; text-align: right; }
+        .pm-bar-wrap { height: 4px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
+        .pm-bar { height: 100%; transition: width 0.35s ease, background-color 0.35s ease; border-radius: 3px; }
+
+        /* ═══ CHAR ON MAP ═══ */
+        .cell-char-layer {
+            width: 82%; height: 82%;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.8);
+            z-index: 3; font-size: 12px;
+        }
+        .cell-char-layer.selected-char {
+            animation: pulseGlow 1.1s ease-in-out infinite alternate;
+            box-shadow: 0 0 0 2px rgba(255,217,102,0.85), 0 0 14px rgba(255,217,102,0.45);
+            z-index: 5;
+        }
+        @keyframes pulseGlow {
+            from { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(255,217,102,0.6)); }
+            to   { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(255,217,102,1));   }
+        }
+
+        /* ═══ MOVE BUTTONS ═══ */
+        .move-btn {
+            width: 30px; height: 30px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.09);
+            color: rgba(255,255,255,0.7); cursor: pointer;
+            border-radius: 5px; font-size: 13px;
+            transition: all 0.12s ease;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .move-btn:hover {
+            background: rgba(0,210,255,0.14);
+            border-color: rgba(0,210,255,0.5);
+            color: #fff; box-shadow: 0 0 8px rgba(0,200,255,0.18);
+        }
+        .move-row { display: flex; gap: 4px; justify-content: center; margin-bottom: 4px; }
+        .center-btn { background: rgba(255,255,255,0.02) !important; border-color: rgba(255,255,255,0.05) !important; cursor: default; color: rgba(255,255,255,0.2) !important; }
+        .center-btn:hover { background: rgba(255,255,255,0.02) !important; box-shadow: none !important; }
+
+        /* ═══ INPUTS EN SIDEBAR ═══ */
+        .sidebar input[type="text"],
+        .sidebar input[type="number"],
+        .sidebar select {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.09);
+            color: #d8d7f0; border-radius: 4px; padding: 5px 8px; font-size: 12px;
+            transition: border-color 0.15s; outline: none;
+        }
+        .sidebar input:focus, .sidebar select:focus {
+            border-color: rgba(255,217,102,0.38);
+            background: rgba(255,217,102,0.03);
+        }
+        .sidebar select option { background: #0a0914; }
+
+        /* ═══ SELECTED CHAR TAG ═══ */
+        #selectedCharTag {
+            background: rgba(255,217,102,0.06);
+            border: 1px solid rgba(255,217,102,0.22) !important;
+            padding: 7px 10px; border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        #selectedCharTagName { color: #ffd966; font-size: 11px; letter-spacing: .04em; }
+
+        /* ═══ IMG PREVIEW ═══ */
+        #imgPreview { font-size: 10px; color: #5eeaaa; margin-bottom: 6px; }
+
+        /* ═══ PLACEHOLDER ═══ */
+        #placeholder { color: rgba(180,185,220,0.2); text-align: center; }
+        #placeholder h3 { font-family: 'Orbitron', sans-serif; font-size: 15px; letter-spacing: .1em; margin-bottom: 8px; }
+        #placeholder p  { font-size: 12px; }
+
+        /* ═══ CHAR LIST SCROLL ═══ */
+        #charListContainer::-webkit-scrollbar { width: 3px; }
+        #charListContainer::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="app-wrap">
+
+        <!-- ══ HEADER ══ -->
+        <div class="app-header">
+            <div>
+                <h2>💥 MODO DIOS</h2>
+                <span class="app-header-sub">Editor de Ciudades y Personajes</span>
+            </div>
+            <div>
+                <button onclick="window.location.href='index.html'" class="btn btn-default">← Volver al Generador</button>
+            </div>
+        </div>
+
+        <!-- ══ TOOLBAR ══ -->
+        <div class="toolbar">
+            <div class="tool-group">
+                <label><input type="radio" name="tool" value="destroy" checked> <span>💥 Destruir</span></label>
+                <label><input type="radio" name="tool" value="repair">          <span>🛠️ Reparar</span></label>
+                <label><input type="radio" name="tool" value="crop">            <span>✂️ Recortar</span></label>
+                <label><input type="radio" name="tool" value="characters">      <span>👤 Personajes</span></label>
+            </div>
+
+            <div class="tool-group" style="align-items:center; gap:6px;">
+                <span style="font-size:11px;color:var(--text-muted);">Pincel</span>
+                <input type="number" id="brushSize" value="1" min="1" max="5">
+            </div>
+
+            <button id="undoBtn"       class="btn btn-default">↩️ Deshacer</button>
+            <button id="zoomInBtn"     class="btn btn-default">🔍+</button>
+            <button id="zoomOutBtn"    class="btn btn-default">🔍−</button>
+            <button id="screenshotBtn" class="btn btn-blue">📸 Captura</button>
+
+            <div style="margin-left: auto; display: flex; gap: 5px;">
+                <input type="file" id="importFile" accept=".json" style="display:none">
+                <button class="btn btn-blue" onclick="document.getElementById('importFile').click()">📂 Importar JSON</button>
+                <button id="exportBtn" class="btn btn-gold">💾 Exportar Proyecto</button>
+            </div>
+        </div>
+
+        <!-- ══ MAIN CONTENT ══ -->
+        <div class="main-content">
+
+            <!-- SIDEBAR IZQUIERDA -->
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-title">
+                        <span class="panel-title-left">📂 Sistema de Archivos</span>
+                    </div>
+                    <button id="selectFolderBtn" class="btn btn-blue" style="width:100%;margin-bottom:5px;">Seleccionar Carpeta</button>
+                    <select id="citySelect" style="width:100%;margin-bottom:5px;">
+                        <option value="">-- Sin carpeta --</option>
+                    </select>
+                    <button id="loadSelectedBtn" class="btn btn-default" style="width:100%;">Cargar Ciudad</button>
+                </div>
+
+                <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+                    <div class="panel-title">
+                        <span class="panel-title-left">📜 Registro de Eventos</span>
+                        <div style="display:flex;gap:4px;">
+                            <button id="saveLogBtn"  class="btn btn-small btn-blue">💾</button>
+                            <button id="clearLogBtn" class="btn btn-small btn-danger">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="logContent" class="log-container">
+                        <div class="log-entry system">🔌 Sistema iniciado.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAPA -->
+            <div class="map-area" id="mapWrapper">
+                <div id="placeholder">
+                    <h3>No hay mapa cargado</h3>
+                    <p>Importa un JSON o vuelve al generador.</p>
+                </div>
+                <div class="grid" id="cityGrid" style="display:none;"></div>
+            </div>
+
+            <!-- SIDEBAR DERECHA -->
+            <div class="sidebar sidebar-right">
+
+                <!-- Crear personaje -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <span class="panel-title-left">👤 Crear Personaje</span>
+                    </div>
+                    <input type="text" id="newCharName" placeholder="Nombre" style="width:100%;margin-bottom:5px;">
+                    <div style="display:flex;gap:5px;margin-bottom:5px;">
+                        <input type="number" id="newCharMove"  placeholder="PM (Ej: 5)" style="width:50%;" value="5">
+                        <input type="number" id="newCharRange" placeholder="Rango"       style="width:50%;" value="1">
+                    </div>
+                    <div style="display:flex;gap:5px;margin-bottom:8px;align-items:center;">
+                        <select id="avatarSelect" style="flex:1;">
+                            <option value="default">Avatar Base</option>
+                            <option value="🧙‍♂️">🧙‍♂️ Mago</option>
+                            <option value="🧝‍♀️">🧝‍♀️ Elfo</option>
+                            <option value="🧟">🧟 Zombie</option>
+                            <option value="🥷">🥷 Ninja</option>
+                        </select>
+                        <input type="file" id="charImageUpload" accept="image/*" style="display:none;">
+                        <button class="btn btn-default btn-small" onclick="document.getElementById('charImageUpload').click()">🖼️</button>
+                    </div>
+                    <div id="imgPreview">(ninguna imagen)</div>
+                    <button id="createCharBtn" class="btn btn-gold" style="width:100%;">✚ Añadir Personaje</button>
+                </div>
+
+                <!-- Lista de personajes -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <span class="panel-title-left">👥 Personajes Activos</span>
+                        <div style="display:flex;gap:4px;">
+                            <button id="centerCharBtn"    class="btn btn-small btn-blue"    title="Centrar en personaje" style="display:none;">🎯</button>
+                            <button id="toggleCharsBtn"   class="btn btn-small btn-default" title="Alternar visibilidad">👁️</button>
+                            <button id="deleteAllCharsBtn" class="btn btn-small btn-danger"  title="Eliminar Todos">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="selectedCharTag" style="display:none;">
+                        <span><strong id="selectedCharTagName">Nombre</strong></span>
+                        <div style="display:flex;gap:4px;">
+                            <button id="placeCharBtn"  class="btn btn-small btn-blue"    title="Colocar">📍</button>
+                            <button id="deselectBtn"   class="btn btn-small btn-default" title="Deseleccionar">❌</button>
+                            <button id="deleteCharBtn" class="btn btn-small btn-danger"  title="Eliminar">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="charListContainer" style="max-height:230px;overflow-y:auto;">
+                        <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px;">Sin personajes creados.</div>
+                    </div>
+                </div>
+
+                <!-- Panel movimiento -->
+                <div class="panel" id="movePanel">
+                    <div class="panel-title">
+                        <span class="panel-title-left">🚶 Movimiento</span>
+                        <button id="resetIndividualMoveBtn" class="btn btn-small btn-blue">♻️ Restaurar PM</button>
+                    </div>
+                    <div style="text-align:center;color:#ffd966;font-size:12px;margin-bottom:8px;letter-spacing:.04em;" id="selectedCharNameMove">Sin selección</div>
+                    <div id="moveButtonsContainer"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="data/terrain.js"></script>
+    <script src="data/buildings.js"></script>
+    <script src="data/names.js"></script>
+    <script src="data/cityPresets.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/generator.js"></script>
+    <script src="js/editor.js"></script>
+    <script>
+    /* ── PATCH: Elimina el confirm() al mover personaje haciendo clic en casilla ─
+       Intercepta window.confirm sólo durante clicks en .cell para que el
+       movimiento sea inmediato, sin diálogo de confirmación.                    */
+    (function () {
+        const _orig = window.confirm.bind(window);
+        let suppress = false;
+        document.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('.cell')) {
+                suppress = true;
+                setTimeout(function () { suppress = false; }, 0);
+            }
+        }, true);
+        window.confirm = function (msg) {
+            if (suppress) return true;
+            return _orig(msg);
+        };
+    })();
+    </script>
+</body>
+</html>

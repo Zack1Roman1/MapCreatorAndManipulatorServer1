@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ciudad Procedural · Generador v4.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/common.css">
+<style>
+/* ══════════════════════════════════════════════
+   INDEX — Remasterizado
+   ══════════════════════════════════════════════ */
+
+/* ─── Reset & base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Layout principal ─── */
+.page-wrap {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+    background: var(--bg-deep);
+}
+
+/* ─── HEADER ─── */
+.header {
+    text-align: center;
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid rgba(255,217,102,0.12);
+    background: linear-gradient(180deg, rgba(232,200,74,0.04) 0%, transparent 100%);
+    position: relative;
+}
+.header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 200px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,200,74,0.4), transparent);
+}
+.header-eyebrow {
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-family: var(--font-body);
+}
+.header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(18px, 3.5vw, 34px);
+    font-weight: 700;
+    letter-spacing: .18em;
+    background: linear-gradient(90deg, #c8a828 0%, #ffd966 40%, #ff9f43 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 5px;
+    text-shadow: none;
+}
+.header-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+/* ─── CONTROLS BAR ─── */
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(10, 11, 20, 0.98);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(8px);
+}
+.ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.ctrl-label {
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+    white-space: nowrap;
+}
+.sep {
+    display: inline-block;
+    width: 1px; height: 22px;
+    background: rgba(255,255,255,0.07);
+    margin: 0 3px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* Selects e inputs del header */
+.controls select,
+.controls input[type="text"] {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 12px;
+    padding: 4px 8px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.controls select:focus,
+.controls input:focus {
+    border-color: rgba(232,200,74,0.4);
+}
+.controls select option { background: #0e0d1a; }
+#seedInput { font-family: monospace; letter-spacing: .06em; width: 110px; }
+
+/* ─── MAIN CONTAINER ─── */
+.container {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    overflow: hidden;
+    max-height: calc(100vh - 110px);
+}
+
+/* ─── MAP WRAPPER ─── */
+.map-wrapper {
+    flex: 1;
+    overflow: auto;
+    background:
+        radial-gradient(ellipse at 25% 35%, rgba(35,20,70,0.35) 0%, transparent 55%),
+        radial-gradient(ellipse at 75% 65%, rgba(15,35,55,0.3) 0%, transparent 50%),
+        #050508;
+    border: 1px solid rgba(255,217,102,0.12);
+    border-radius: 5px;
+    min-height: 400px;
+    position: relative;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+}
+.map-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+.map-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+.grid {
+    display: grid;
+    line-height: 1;
+    user-select: none;
+}
+.cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid rgba(0,0,0,0.28);
+    border-bottom: 1px solid rgba(0,0,0,0.28);
+    cursor: default;
+    position: relative;
+    transition: filter .05s;
+    font-family: 'Courier New', monospace;
+}
+.cell:hover { filter: brightness(1.55); z-index: 2; }
+
+/* ─── SIDE PANEL ─── */
+.side-panel {
+    width: 240px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+}
+.side-panel::-webkit-scrollbar { width: 4px; }
+.side-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+.panel-box {
+    background: rgba(12,11,22,0.98);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 5px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.panel-box-head {
+    padding: 7px 11px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: rgba(232,200,74,0.6);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.panel-box-body { padding: 10px; }
+
+/* ─── INFO ROWS ─── */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+.info-row .lbl { color: var(--text-muted); }
+.info-row .val { color: var(--text); font-weight: 600; font-size: 11px; font-family: monospace; }
+.info-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ─── LEGEND ─── */
+.legend-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 2px 5px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.02);
+    white-space: nowrap;
+}
+.legend-swatch { width: 10px; height: 10px; border-radius: 1px; flex-shrink: 0; }
+
+/* ─── DESC PANEL ─── */
+.desc-panel {
+    display: none;
+    padding: 11px 14px;
+    background: rgba(255,217,102,0.04);
+    border: 1px solid rgba(255,217,102,0.15);
+    border-radius: 5px;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--text-muted);
+    margin-bottom: 0;
+}
+.desc-panel.open { display: block; }
+.desc-title {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--gold);
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: block;
+    letter-spacing: .06em;
+}
+.desc-stat { color: var(--gold); font-weight: 700; }
+
+/* ─── TOAST ─── */
+.toast {
+    position: fixed;
+    bottom: 18px; right: 18px;
+    z-index: 9999;
+    padding: 7px 14px;
+    background: rgba(14,13,24,0.96);
+    border: 1px solid rgba(232,200,74,0.3);
+    border-radius: 4px;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 600;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    animation: toast-in .2s ease, toast-out .3s ease 2s forwards;
+}
+@keyframes toast-in  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+@keyframes toast-out { from{opacity:1} to{opacity:0} }
+
+/* ─── Folder status ─── */
+#folderStatus {
+    font-size: 11px;
+    color: var(--green);
+}
+
+/* ─── Modo Dios button override ─── */
+.btn-god {
+    border-color: rgba(232,64,64,0.5) !important;
+    color: #ff6b6b !important;
+    background: rgba(232,64,64,0.08) !important;
+    font-family: 'Orbitron', sans-serif !important;
+    font-size: 10px !important;
+    letter-spacing: .08em !important;
+}
+.btn-god:hover {
+    background: rgba(232,64,64,0.16) !important;
+    border-color: #e84040 !important;
+    box-shadow: 0 0 14px rgba(232,64,64,0.2) !important;
+}
+
+/* ─── Responsive ─── */
+@media(max-width:860px){
+    .container { flex-direction: column; max-height: none; }
+    .side-panel { width: 100%; flex-direction: row; flex-wrap: wrap; overflow: visible; }
+    .panel-box { flex: 1; min-width: 200px; }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- ══ HEADER ══ -->
+  <div class="header">
+    <div class="header-eyebrow">Sistema de Generación Procedural v4.0</div>
+    <h1>🏙 CIUDAD · GENERADOR</h1>
+    <div class="header-sub">Zonificación Inteligente &nbsp;·&nbsp; Calles Orgánicas &nbsp;·&nbsp; Variantes</div>
+  </div>
+
+  <!-- ══ CONTROLS ══ -->
+  <div class="controls">
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Tipo</span>
+      <select id="modeSelect" style="min-width:155px;"></select>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Variante</span>
+      <select id="variantSelect" style="min-width:135px;"><option value="">⬜ Estándar</option></select>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Tamaño</span>
+      <select id="sizeSelect">
+        <option value="28">Pequeña 28×28</option>
+        <option value="44">Normal 44×44</option>
+        <option value="60" selected>Grande 60×60</option>
+        <option value="88">Enorme 88×88</option>
+      </select>
+    </div>
+
+    <span class="sep"></span>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Seed</span>
+      <input type="text" id="seedInput" placeholder="Auto" maxlength="20">
+      <button id="copySeedBtn"   class="btn btn-blue btn-small" title="Copiar seed">📋</button>
+      <button id="randomSeedBtn" class="btn btn-small"          title="Seed aleatoria">🎲</button>
+    </div>
+
+    <span class="sep"></span>
+
+    <div class="ctrl-group">
+      <button id="selectFolderBtn" class="btn btn-blue">📁 Carpeta</button>
+      <select id="cityFileSelect" style="min-width:125px;"><option value="">-- Sin carpeta --</option></select>
+      <button id="loadCityBtn" class="btn btn-teal btn-small">Cargar</button>
+      <span id="folderStatus"></span>
+    </div>
+
+    <span class="sep"></span>
+
+    <button id="regenerateBtn" class="btn btn-gold">⚡ GENERAR</button>
+    <button id="exportBtn"     class="btn btn-blue">💾 Exportar</button>
+    <label  class="btn btn-blue">📂 Importar<input type="file" id="importFile" accept=".json" style="display:none"></label>
+    <button id="toggleDescBtn" class="btn btn-small" title="Info / descripción">ℹ️ Info</button>
+
+    <span class="sep"></span>
+    <button onclick="window.location.href='editor.html'" class="btn btn-god">💥 MODO DIOS</button>
+
+  </div>
+
+  <!-- ══ DESC (togglable) ══ -->
+  <div style="padding: 0 10px;">
+    <div id="descPanel" class="desc-panel"></div>
+  </div>
+
+  <!-- ══ MAIN ══ -->
+  <div class="container">
+
+    <!-- Map -->
+    <div class="map-wrapper" id="mapWrapper">
+      <div class="grid" id="cityGrid"></div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="side-panel">
+
+      <!-- Stats -->
+      <div class="panel-box">
+        <div class="panel-box-head">📊 Estadísticas</div>
+        <div class="panel-box-body" id="infoBody">
+          <div style="color:var(--text-muted);font-size:11px;">Genera una ciudad para ver los datos.</div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="panel-box">
+        <div class="panel-box-head">🗺️ Leyenda</div>
+        <div class="panel-box-body">
+          <div class="legend-grid" id="legendBody"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ SCRIPTS ══ -->
+<script src="data/terrain.js"></script>
+<script src="data/buildings.js"></script>
+<script src="data/names.js"></script>
+<script src="data/cityPresets.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/generator.js"></script>
+<script>
+'use strict';
+let currentGrid = null;
+let currentMode = 'capital', currentVariant = '', currentSize = 60, currentSeed = null;
+let currentCellSize = 14;
+let currentRootHandle = null, ciudadesHandle = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    populateModeSelect();
+    bindEvents();
+    const saved = localStorage.getItem('gen_seed');
+    if (saved) { document.getElementById('seedInput').value = saved; currentSeed = saved; }
+    regenerate();
+});
+
+function populateModeSelect() {
+    const sel = document.getElementById('modeSelect');
+    getAllCityTypes().forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.key; o.textContent = t.label; sel.appendChild(o);
+    });
+    sel.value = 'capital';
+    sel.addEventListener('change', () => { currentMode = sel.value; populateVariantSelect(); });
+    populateVariantSelect();
+}
+
+function populateVariantSelect() {
+    const sel = document.getElementById('variantSelect');
+    sel.innerHTML = '<option value="">⬜ Estándar</option>';
+    getVariantsForMode(currentMode).forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.key; o.textContent = v.label; sel.appendChild(o);
+    });
+    sel.value = currentVariant;
+}
+
+function bindEvents() {
+    document.getElementById('regenerateBtn').addEventListener('click', regenerate);
+    document.getElementById('exportBtn').addEventListener('click', exportMap);
+    document.getElementById('importFile').addEventListener('change', importMap);
+    document.getElementById('copySeedBtn').addEventListener('click', copySeed);
+    document.getElementById('randomSeedBtn').addEventListener('click', () => {
+        document.getElementById('seedInput').value = generateRandomSeed();
+    });
+    document.getElementById('toggleDescBtn').addEventListener('click', toggleDesc);
+    document.getElementById('variantSelect').addEventListener('change', e => { currentVariant = e.target.value; });
+    document.getElementById('sizeSelect').addEventListener('change',   e => { currentSize = parseInt(e.target.value); });
+    document.getElementById('seedInput').addEventListener('change',    e => { currentSeed = e.target.value.trim() || null; });
+    document.getElementById('selectFolderBtn').addEventListener('click', selectFolder);
+    document.getElementById('loadCityBtn').addEventListener('click', loadSelectedCity);
+    window.addEventListener('resize', () => { if (currentGrid) { calcCellSize(); render(); } });
+}
+
+function regenerate() {
+    currentMode    = document.getElementById('modeSelect').value;
+    currentVariant = document.getElementById('variantSelect').value;
+    currentSize    = parseInt(document.getElementById('sizeSelect').value);
+    const seedEl   = document.getElementById('seedInput');
+    currentSeed    = seedEl.value.trim() || generateRandomSeed();
+    seedEl.value   = currentSeed;
+    localStorage.setItem('gen_seed', currentSeed);
+    setRandomSeed(currentSeed);
+    const preset   = currentVariant ? applyVariant(currentMode, currentVariant) : getPresetByName(currentMode);
+    currentGrid    = generateCityWithPreset(preset, currentSize);
+    calcCellSize();
+    render();
+    renderLegend();
+    renderInfo(preset);
+    if (document.getElementById('descPanel').classList.contains('open')) renderDesc(preset);
+}
+
+function calcCellSize() {
+    const wrapper = document.getElementById('mapWrapper');
+    const avail   = (wrapper ? wrapper.clientWidth : window.innerWidth * 0.7) - 8;
+    currentCellSize = Math.max(7, Math.min(24, Math.floor(avail / currentSize)));
+}
+
+function render() {
+    if (!currentGrid) return;
+    const gridEl = document.getElementById('cityGrid');
+    const rows = currentGrid.length, cols = currentGrid[0]?.length || 0;
+    const cs = currentCellSize;
+    gridEl.style.gridTemplateColumns = `repeat(${cols},${cs}px)`;
+    gridEl.style.gridTemplateRows    = `repeat(${rows},${cs}px)`;
+    if (gridEl.children.length !== rows * cols) gridEl.innerHTML = '';
+    const useEmoji = cs >= 16;
+    const fontSize = Math.max(7, cs * 0.52) + 'px';
+    let idx = 0;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const cell = currentGrid[r][c];
+            let el;
+            if (gridEl.children[idx]) { el = gridEl.children[idx]; }
+            else { el = document.createElement('div'); el.className = 'cell'; gridEl.appendChild(el); }
+            idx++;
+            el.style.width = cs + 'px'; el.style.height = cs + 'px'; el.style.fontSize = fontSize;
+            if (cell.buildingKey && BUILDINGS[cell.buildingKey]) {
+                const b = BUILDINGS[cell.buildingKey];
+                el.style.background = b.bg; el.style.color = '#ccc';
+                const above = r > 0 ? currentGrid[r-1][c].buildingId : null;
+                const left  = c > 0 ? currentGrid[r][c-1].buildingId : null;
+                el.textContent = (useEmoji && cell.buildingId !== above && cell.buildingId !== left) ? b.emoji : '';
+                el.title = (BUILDINGS[cell.buildingKey].name || cell.buildingKey) + (cell.buildingName ? ' — ' + cell.buildingName : '');
+            } else {
+                const t = T[cell.terrain] || T.EMPTY;
+                el.style.background = t.bg; el.style.color = '#44556688';
+                let txt = '';
+                if (useEmoji) {
+                    if      (cell.terrain === 'WATER')    { txt = '≈'; el.style.color='#1a4a7088'; }
+                    else if (cell.terrain === 'PARK')     { txt = '🌲'; }
+                    else if (cell.terrain === 'PLAZA')    { txt = '◆'; el.style.color='#5a4a2088'; }
+                    else if (cell.terrain === 'FOUNTAIN') { txt = '💧'; }
+                    else if (cell.terrain === 'DOCK')     { txt = '⚓'; }
+                    else if (cell.terrain === 'AVENUE')   { el.style.borderRight='1px solid rgba(90,60,0,0.4)'; el.style.borderBottom='1px solid rgba(90,60,0,0.4)'; }
+                    else if (cell.terrain === 'ROAD')     { el.style.borderRight='1px solid rgba(20,15,15,0.5)'; el.style.borderBottom='1px solid rgba(20,15,15,0.5)'; }
+                }
+                el.textContent = txt;
+                el.title = t.name + (cell.label ? ' — ' + cell.label : '');
+            }
+        }
+    }
+    while (gridEl.children.length > rows * cols) gridEl.removeChild(gridEl.lastChild);
+}
+
+function renderLegend() {
+    const body = document.getElementById('legendBody');
+    body.innerHTML = '';
+    const seen = new Set(), items = [];
+    for (const row of currentGrid) {
+        for (const cell of row) {
+            if (cell.buildingKey && !seen.has(cell.buildingKey)) {
+                seen.add(cell.buildingKey);
+                const b = BUILDINGS[cell.buildingKey];
+                if (b) items.push({ label: b.name, bg: b.bg, emoji: b.emoji });
+            } else if (!cell.buildingKey) {
+                const key = 'T_' + cell.terrain;
+                if (!seen.has(key) && cell.terrain !== 'EMPTY' && cell.terrain !== 'FENCE') {
+                    seen.add(key);
+                    const t = T[cell.terrain];
+                    if (t) items.push({ label: t.name, bg: t.bg, emoji: t.emoji || '' });
+                }
+            }
+        }
+    }
+    items.slice(0, 50).forEach(it => {
+        const el = document.createElement('div');
+        el.className = 'legend-item';
+        el.innerHTML = `<div class="legend-swatch" style="background:${it.bg}"></div>${it.label}`;
+        body.appendChild(el);
+    });
+}
+
+function renderInfo(preset) {
+    if (!currentGrid) return;
+    const stats = getGridStatistics(currentGrid);
+    const pop   = estimatePopulation(stats, currentMode);
+    const varLbl = preset?.variantLabel ? ` <span style="color:var(--text-muted)">·</span> ${preset.variantLabel}` : '';
+    const typeStr = (CITY_PRESETS[currentMode]?.label || currentMode) + varLbl;
+    const topB = Object.entries(stats.buildings).sort(([,a],[,b]) => b-a).slice(0,4)
+        .map(([k]) => { const b = BUILDINGS[k]; return b ? `<span style="font-size:13px">${b.emoji}</span> ${b.name}` : k; }).join('<br>');
+    document.getElementById('infoBody').innerHTML = `
+      <div class="info-row"><span class="lbl">Tipo</span><span class="val">${typeStr}</span></div>
+      <div class="info-row"><span class="lbl">Tamaño</span><span class="val">${currentGrid.length}×${currentGrid[0].length}</span></div>
+      <div class="info-row"><span class="lbl">Seed</span><span class="val">${currentSeed}</span></div>
+      <div class="info-row"><span class="lbl">Población</span><span class="val">~${pop.toLocaleString('es')}</span></div>
+      <div class="info-row"><span class="lbl">Edificios</span><span class="val">${stats.buildingCount}</span></div>
+      <div class="info-row"><span class="lbl">Calles</span><span class="val">${stats.roadLength} celdas</span></div>
+      ${topB ? `<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;">
+        <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;">Top edificios</div>
+        <div style="font-size:11px;line-height:1.9;color:var(--text-muted);">${topB}</div></div>` : ''}`;
+}
+
+function toggleDesc() {
+    const panel = document.getElementById('descPanel');
+    const isOpen = panel.classList.toggle('open');
+    if (isOpen && currentGrid) {
+        const preset = currentVariant ? applyVariant(currentMode, currentVariant) : getPresetByName(currentMode);
+        renderDesc(preset);
+    }
+}
+
+function renderDesc(preset) {
+    const panel = document.getElementById('descPanel');
+    if (!currentGrid) return;
+    const info = generateCityDescription(currentGrid, currentMode, currentVariant, preset);
+    panel.innerHTML = `
+      <span class="desc-title">${info.label}</span>
+      ${info.desc}${info.note}
+      <br><br>
+      <span class="desc-stat">Tamaño:</span> ${info.size} &nbsp;|&nbsp;
+      <span class="desc-stat">Población:</span> ~${info.pop.toLocaleString('es')} hab &nbsp;|&nbsp;
+      <span class="desc-stat">Edificios:</span> ${info.buildingCount}
+      <br><span style="font-size:11px;color:var(--text-muted);">Edificios principales: ${info.topBuildings}</span>`;
+}
+
+function copySeed() {
+    const s = document.getElementById('seedInput').value;
+    if (!s) return;
+    navigator.clipboard?.writeText(s).then(() => toast('📋 Seed copiada: ' + s));
+}
+
+async function selectFolder() {
+    if (!window.showDirectoryPicker) { toast('⚠️ File System API no disponible'); return; }
+    try {
+        currentRootHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+        ciudadesHandle    = await currentRootHandle.getDirectoryHandle('ciudades', { create:true });
+        await currentRootHandle.getDirectoryHandle('capturas', { create:true });
+        document.getElementById('folderStatus').textContent = '✅ ' + currentRootHandle.name;
+        await listCityFiles();
+    } catch(e) { document.getElementById('folderStatus').textContent = ''; }
+}
+
+async function listCityFiles() {
+    const sel = document.getElementById('cityFileSelect');
+    if (!sel || !ciudadesHandle) return;
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    for await (const [name] of ciudadesHandle.entries()) {
+        if (!name.endsWith('.json')) continue;
+        const o = document.createElement('option');
+        o.value = name; o.textContent = name.replace('.json',''); sel.appendChild(o);
+    }
+}
+
+async function loadSelectedCity() {
+    const fn = document.getElementById('cityFileSelect')?.value;
+    if (!fn || !ciudadesHandle) { toast('Selecciona una ciudad de la lista'); return; }
+    try {
+        const fh   = await ciudadesHandle.getFileHandle(fn);
+        const data = JSON.parse(await (await fh.getFile()).text());
+        loadCityData(data); toast('📂 Cargado: ' + fn);
+    } catch(e) { toast('❌ Error al cargar'); }
+}
+
+function exportMap() {
+    if (!currentGrid) return;
+    const data = { grid:currentGrid, mode:currentMode, variant:currentVariant, seed:currentSeed, exportedAt:new Date().toISOString() };
+    const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'})),
+        download: `ciudad_${currentSeed}.json`
+    });
+    a.click(); URL.revokeObjectURL(a.href);
+    toast('💾 Exportado: ciudad_' + currentSeed + '.json');
+}
+
+function importMap(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => {
+        try { loadCityData(JSON.parse(ev.target.result)); toast('📂 Importado: ' + file.name); }
+        catch { toast('❌ Error al importar'); }
+    };
+    r.readAsText(file); e.target.value = '';
+}
+
+function loadCityData(data) {
+    if (!data?.grid) return;
+    currentGrid = Array.isArray(data.grid[0]) ? data.grid : deserializeGrid(data.grid);
+    if (data.mode)    { currentMode    = data.mode;    document.getElementById('modeSelect').value = data.mode; populateVariantSelect(); }
+    if (data.variant) { currentVariant = data.variant; document.getElementById('variantSelect').value = data.variant; }
+    if (data.seed)    { currentSeed    = data.seed;    document.getElementById('seedInput').value = data.seed; }
+    currentSize = currentGrid.length;
+    calcCellSize();
+    render(); renderLegend();
+    const preset = currentVariant ? applyVariant(currentMode,currentVariant) : getPresetByName(currentMode);
+    renderInfo(preset);
+}
+
+function toast(msg) {
+    const t = Object.assign(document.createElement('div'), { className:'toast', textContent:msg });
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2800);
+}
+</script>
+</body>
+</html>
