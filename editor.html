@@ -125,20 +125,6 @@
         }
         .cell:hover { filter: brightness(1.4); z-index: 2; }
 
-        .cell.reachable {
-            box-shadow: inset 0 0 0 2px rgba(0,230,255,0.65), inset 0 0 8px rgba(0,200,255,0.12);
-            background-color: rgba(0,210,255,0.1) !important;
-            cursor: pointer;
-        }
-        .cell.reachable:hover {
-            background-color: rgba(0,225,255,0.26) !important;
-            transform: scale(1.05); z-index: 6;
-            box-shadow: inset 0 0 0 2px rgba(0,245,255,0.95), 0 0 10px rgba(0,210,255,0.4);
-        }
-        .cell.in-range {
-            box-shadow: inset 0 0 0 2px rgba(255,80,100,0.55), inset 0 0 7px rgba(255,50,80,0.08);
-            background-color: rgba(255,60,80,0.07) !important;
-        }
         .cell.brush-preview-destroy {
             box-shadow: inset 0 0 0 2px #ff4757, inset 0 0 10px rgba(255,71,87,0.3) !important;
             background-color: rgba(255,71,87,0.2) !important;
@@ -180,9 +166,6 @@
         .char-info { flex: 1; min-width: 0; }
         .char-name { font-weight: 700; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
         .char-pos { font-size: 10px; color: var(--text-muted); margin-bottom: 5px; font-family: monospace; }
-        .pm-text { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; text-align: right; }
-        .pm-bar-wrap { height: 4px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
-        .pm-bar { height: 100%; transition: width 0.35s ease, background-color 0.35s ease; border-radius: 3px; }
 
         /* ═══ CHAR ON MAP ═══ */
         .cell-char-layer {
@@ -202,25 +185,6 @@
             from { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(255,217,102,0.6)); }
             to   { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(255,217,102,1));   }
         }
-
-        /* ═══ MOVE BUTTONS ═══ */
-        .move-btn {
-            width: 30px; height: 30px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.09);
-            color: rgba(255,255,255,0.7); cursor: pointer;
-            border-radius: 5px; font-size: 13px;
-            transition: all 0.12s ease;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .move-btn:hover {
-            background: rgba(0,210,255,0.14);
-            border-color: rgba(0,210,255,0.5);
-            color: #fff; box-shadow: 0 0 8px rgba(0,200,255,0.18);
-        }
-        .move-row { display: flex; gap: 4px; justify-content: center; margin-bottom: 4px; }
-        .center-btn { background: rgba(255,255,255,0.02) !important; border-color: rgba(255,255,255,0.05) !important; cursor: default; color: rgba(255,255,255,0.2) !important; }
-        .center-btn:hover { background: rgba(255,255,255,0.02) !important; box-shadow: none !important; }
 
         /* ═══ INPUTS EN SIDEBAR ═══ */
         .sidebar input[type="text"],
@@ -348,10 +312,6 @@
                         <span class="panel-title-left">👤 Crear Personaje</span>
                     </div>
                     <input type="text" id="newCharName" placeholder="Nombre" style="width:100%;margin-bottom:5px;">
-                    <div style="display:flex;gap:5px;margin-bottom:5px;">
-                        <input type="number" id="newCharMove"  placeholder="PM (Ej: 5)" style="width:50%;" value="5">
-                        <input type="number" id="newCharRange" placeholder="Rango"       style="width:50%;" value="1">
-                    </div>
                     <div style="display:flex;gap:5px;margin-bottom:8px;align-items:center;">
                         <select id="avatarSelect" style="flex:1;">
                             <option value="default">Avatar Base</option>
@@ -390,16 +350,6 @@
                     </div>
                 </div>
 
-                <!-- Panel movimiento -->
-                <div class="panel" id="movePanel">
-                    <div class="panel-title">
-                        <span class="panel-title-left">🚶 Movimiento</span>
-                        <button id="resetIndividualMoveBtn" class="btn btn-small btn-blue">♻️ Restaurar PM</button>
-                    </div>
-                    <div style="text-align:center;color:#ffd966;font-size:12px;margin-bottom:8px;letter-spacing:.04em;" id="selectedCharNameMove">Sin selección</div>
-                    <div id="moveButtonsContainer"></div>
-                </div>
-
             </div>
         </div>
     </div>
@@ -411,24 +361,5 @@
     <script src="js/utils.js"></script>
     <script src="js/generator.js"></script>
     <script src="js/editor.js"></script>
-    <script>
-    /* ── PATCH: Elimina el confirm() al mover personaje haciendo clic en casilla ─
-       Intercepta window.confirm sólo durante clicks en .cell para que el
-       movimiento sea inmediato, sin diálogo de confirmación.                    */
-    (function () {
-        const _orig = window.confirm.bind(window);
-        let suppress = false;
-        document.addEventListener('click', function (e) {
-            if (e.target.closest && e.target.closest('.cell')) {
-                suppress = true;
-                setTimeout(function () { suppress = false; }, 0);
-            }
-        }, true);
-        window.confirm = function (msg) {
-            if (suppress) return true;
-            return _orig(msg);
-        };
-    })();
-    </script>
 </body>
 </html>
