@@ -1,5 +1,7 @@
 // ============================================================
-//  EDITOR — Lógica del Modo Dios
+//  EDITOR — Modo Dios (Simplificado)
+//  - Destruir/Reparar terreno
+//  - Colocar/Recolocar personajes sin sistema de PM
 // ============================================================
 
 let grid = null, gridRows = 0, gridCols = 0;
@@ -47,7 +49,6 @@ function saveToLocalStorage() {
 function setupEventListeners() {
     document.getElementById('importFile')?.addEventListener('change', importFile);
     document.getElementById('exportBtn')?.addEventListener('click', exportMap);
-    document.getElementById('saveProjectBtn')?.addEventListener('click', saveProject);
     document.getElementById('screenshotBtn')?.addEventListener('click', takeScreenshot);
     document.getElementById('undoBtn')?.addEventListener('click', undoAction);
     document.getElementById('zoomInBtn')?.addEventListener('click', zoomIn);
@@ -57,7 +58,6 @@ function setupEventListeners() {
     document.getElementById('placeCharBtn')?.addEventListener('click', startPlacementMode);
     document.getElementById('deleteCharBtn')?.addEventListener('click', deleteSelectedCharacter);
     document.getElementById('deselectBtn')?.addEventListener('click', () => selectCharacter(null));
-    document.getElementById('resetIndividualMoveBtn')?.addEventListener('click', resetIndividualMovement);
     document.getElementById('centerCharBtn')?.addEventListener('click', centerMapOnCharacter);
     document.getElementById('deleteAllCharsBtn')?.addEventListener('click', deleteAllCharacters);
     document.getElementById('saveLogBtn')?.addEventListener('click', saveLog);
@@ -82,21 +82,18 @@ function handleKeyDown(e) {
     if (e.key === 'Escape') {
         placementMode = false;
         document.body.style.cursor = '';
-        addLogEntry('⚪ Modo colocación cancelado.');
+        addLogEntry('⚪ Colocación cancelada.');
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoAction(); }
     if (e.key === '+' || e.key === '=') zoomIn();
     if (e.key === '-') zoomOut();
-    if (!selectedCharId) return;
-    const moves = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1],
-                    w:[-1,0], s:[1,0], a:[0,-1], d:[0,1] };
-    if (moves[e.key]) { e.preventDefault(); moveCharacter(...moves[e.key]); }
 }
 
 // ─── Herramientas de grid ──────────────────────────────────
 function getActiveTool() {
     return document.querySelector('input[name="tool"]:checked')?.value || 'destroy';
 }
+
 function getBrushSize() {
     return parseInt(document.getElementById('brushSize')?.value || 1);
 }
@@ -109,24 +106,14 @@ function handleGridMouseDown(e) {
 
     const tool = getActiveTool();
     if (tool === 'crop') { cropStart = { row, col }; return; }
+    
     if (tool === 'characters') {
-        if (placementMode) {
+        if (placementMode && selectedCharId) {
             handleCharacterPlacement(row, col);
-        } else if (selectedCharId) {
-            const char = characters.find(c => c.id === selectedCharId);
-            if (char && char.row >= 0) {
-                const d = getKingDistance(char.row, char.col, row, col);
-                if (d > 0 && d <= char.pm) {
-
-                        executeCharacterMovement(char, row, col);
-
-                    isMouseDown = false;
-                    return;
-                }
-            }
         }
         return;
     }
+    
     saveToHistory();
     clearBrushPreview();
     applyTool(row, col, tool);
@@ -259,86 +246,21 @@ function clearBrushPreview() {
     });
 }
 
-// ═══════════════════════════════════════════════════════════
-// NUEVA LÓGICA DE MOVIMIENTO - ESTILO REY DE AJEDREZ
-// ═══════════════════════════════════════════════════════════
-
-// 1. Cálculo de distancia Chebyshev (Estilo Rey de Ajedrez: diagonales valen 1)
-function getKingDistance(r1, c1, r2, c2) {
-    return Math.max(Math.abs(r1 - r2), Math.abs(c1 - c2));
-}
-
-// 2. Función unificada para ejecutar el movimiento bajo las nuevas reglas
-function executeCharacterMovement(char, targetR, targetC) {
-    // Soportar cualquier nomenclatura de coordenadas de tu base original (r/c o row/col)
-    const startR = char.r !== undefined ? char.r : char.row;
-    const startC = char.c !== undefined ? char.c : char.col;
-    
-    if (startR === undefined || startC === undefined) return false;
-
-    // Calcular la distancia total al objetivo
-    const distance = getKingDistance(startR, startC, targetR, targetC);
-    
-    // Detectar dinámicamente la propiedad de rango/distancia del personaje
-    const maxRange = char.rango || char.distancia || char.speed || char.maxDist || char.movement || char.maxPM || 5;
-
-    // VALIDACIÓN 1: Verificar si le quedan PM (veces que puede moverse)
-    if (char.pm !== undefined && char.pm <= 0) {
-        if (typeof addLogEntry === 'function') addLogEntry("⚠️ No le quedan PM (puntos de movimiento) a este personaje.");
-        else alert("No le quedan PM a este personaje.");
-        return false;
-    }
-
-    // VALIDACIÓN 2: Verificar si la casilla destino está dentro de su rango de distancia
-    if (distance > maxRange) {
-        if (typeof addLogEntry === 'function') addLogEntry(`⚠️ Celda fuera de rango. Distancia: ${distance}, Rango Máximo: ${maxRange}`);
-        else alert(`Celda fuera de rango. Distancia: ${distance}, Rango Máximo: ${maxRange}`);
-        return false;
-    }
-
-    // Actualizar la posición del personaje (adaptable a r/c o row/col)
-    if (char.r !== undefined) char.r = targetR;
-    if (char.row !== undefined) char.row = targetR;
-    if (char.c !== undefined) char.c = targetC;
-    if (char.col !== undefined) char.col = targetC;
-
-    // Consumir exactamente 1 PM (una vez de movimiento), sin importar los casilleros avanzados
-    if (char.pm !== undefined) {
-        char.pm -= 1;
-    } else if (char.movesLeft !== undefined) {
-        char.movesLeft -= 1;
-    }
-
-    if (typeof addLogEntry === 'function') {
-        addLogEntry(`🚶 Personaje movido a (${targetR}, ${targetC}). Distancia: ${distance}. PM restantes: ${char.pm}`);
-    }
-
-    // Forzar actualización de pantalla y persistencia de datos original
-    if (typeof fullRender === 'function') fullRender();
-    if (typeof render === 'function') render();
-    if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-
-    return true;
-}
-
-// ─── Personajes ───────────────────────────────────────────
+// ─── SISTEMA SIMPLE DE PERSONAJES ──────────────────────────────────────
 function createCharacter() {
     const nameInput = document.getElementById('newCharName');
     const name = nameInput?.value.trim() || `Personaje ${characters.length+1}`;
-    const maxPM = parseInt(document.getElementById('newCharMove')?.value || 5);
-    const range = parseInt(document.getElementById('newCharRange')?.value || 1);
-
-    if (maxPM <= 0 || range <= 0) {
-        addLogEntry('⚠️ Error: Los PM y el Rango deben ser mayores a 0.');
-        return;
-    }
 
     const avatarSel = document.getElementById('avatarSelect')?.value;
     const avatar = uploadedCharImage || (avatarSel === 'default' ? '🎭' : avatarSel);
 
     const char = {
-        id: `c${Date.now()}`, name, maxPM, pm: maxPM, range,
-        avatar, row: -1, col: -1, color: _randomColor()
+        id: `c${Date.now()}`, 
+        name, 
+        avatar, 
+        row: -1, 
+        col: -1, 
+        color: _randomColor()
     };
 
     characters.push(char);
@@ -346,7 +268,7 @@ function createCharacter() {
     if (document.getElementById('imgPreview')) document.getElementById('imgPreview').textContent = '(ninguna imagen)';
     if (nameInput) nameInput.value = '';
 
-    addLogEntry(`✨ Creado: ${name} (PM:${maxPM} Rango:${range})`);
+    addLogEntry(`✨ Creado: ${name}`);
     renderCharacterList();
     selectCharacter(char.id);
     saveToLocalStorage();
@@ -368,7 +290,8 @@ function startPlacementMode() {
 function handleCharacterPlacement(row, col) {
     const char = characters.find(c => c.id === selectedCharId);
     if (!char) return;
-    char.row = row; char.col = col;
+    char.row = row; 
+    char.col = col;
     placementMode = false;
     document.body.style.cursor = '';
     addLogEntry(`📍 ${char.name} colocado en [${row},${col}]`);
@@ -385,7 +308,7 @@ function selectCharacter(id) {
     const centerBtn = document.getElementById('centerCharBtn');
 
     if (char) {
-        if (tagName) tagName.textContent = `${char.name} (PM: ${char.pm})`;
+        if (tagName) tagName.textContent = char.name;
         if (tag) tag.style.display = 'flex';
         if (centerBtn) centerBtn.style.display = char.row >= 0 ? 'inline-block' : 'none';
     } else {
@@ -394,14 +317,7 @@ function selectCharacter(id) {
     }
 
     renderCharacterList();
-    updateIndividualMovePanel();
-
-    if (char && char.row >= 0) {
-        highlightMovableCells();
-        centerMapOnCharacter();
-    } else {
-        renderGrid();
-    }
+    renderGrid();
 }
 
 function deleteSelectedCharacter() {
@@ -452,79 +368,6 @@ function centerMapOnCharacter() {
             cell.style.boxShadow = '';
             cell.style.zIndex = '';
         }, 700);
-    }
-}
-
-function moveCharacter(dr, dc) {
-    const char = characters.find(c => c.id === selectedCharId);
-    if (!char || char.pm <= 0 || char.row < 0) return;
-    const nr = char.row + dr, nc = char.col + dc;
-    if (!isInBounds(nr, nc, gridRows, gridCols)) return;
-    char.row = nr; char.col = nc; char.pm--;
-    addLogEntry(`🚶 ${char.name} → [${nr},${nc}] (PM: ${char.pm}/${char.maxPM})`);
-    updateIndividualMovePanel();
-    renderGrid();
-    renderCharacterList();
-    highlightMovableCells();
-    saveToLocalStorage();
-}
-
-function moveCharacterTo(row, col) {
-    const char = characters.find(c => c.id === selectedCharId);
-    if (!char || char.row < 0) return;
-
-    const d = getKingDistance(char.row, char.col, row, col);
-    if (d <= 0 || d > char.pm) return;
-
-    executeCharacterMovement(char, row, col);
-}
-
-function resetIndividualMovement() {
-    const char = characters.find(c => c.id === selectedCharId);
-    if (!char) return;
-    char.pm = char.maxPM;
-    addLogEntry(`♻️ ${char.name}: PM recuperados (${char.maxPM})`);
-    updateIndividualMovePanel();
-    renderGrid();
-    renderCharacterList();
-    if (char.row >= 0) highlightMovableCells();
-}
-
-function highlightMovableCells() {
-    const char = characters.find(c => c.id === selectedCharId);
-    const cells = document.querySelectorAll('.cell');
-
-    cells.forEach(el => {
-        el.classList.remove('reachable', 'in-range');
-        if (el.dataset.originalTitle) {
-            el.title = el.dataset.originalTitle;
-        }
-    });
-
-    if (!char || char.row < 0 || !showAllChars) return;
-
-    for (let r = 0; r < gridRows; r++) {
-        for (let c = 0; c < gridCols; c++) {
-            const d = getKingDistance(char.row, char.col, r, c);
-            if (d === 0) continue;
-
-            const el = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
-            if (!el) continue;
-
-            if (!el.dataset.originalTitle && el.title) {
-                el.dataset.originalTitle = el.title;
-            } else if (!el.dataset.originalTitle) {
-                el.dataset.originalTitle = "";
-            }
-
-            if (d <= char.pm) {
-                el.classList.add('reachable');
-                el.title = `🎯 Mover aquí (Costo: 1 PM | Distancia: ${d})\n${el.dataset.originalTitle}`;
-            }
-            if (d <= char.range && d > 0) {
-                el.classList.add('in-range');
-            }
-        }
     }
 }
 
@@ -588,7 +431,6 @@ function fullRender() {
     if (gridEl) gridEl.style.display = 'grid';
     renderGrid();
     renderCharacterList();
-    updateIndividualMovePanel();
 }
 
 function renderGrid() {
@@ -685,34 +527,6 @@ function renderGrid() {
     }
 }
 
-function onCellClick(e) {
-    const r = parseInt(e.currentTarget.dataset.r);
-    const c = parseInt(e.currentTarget.dataset.c);
-    const tool = getActiveTool();
-    
-    if (tool === 'characters') {
-        if (placementMode) {
-            handleCharacterPlacement(r, c);
-        } else if (selectedCharId) {
-            const char = characters.find(c => c.id === selectedCharId);
-            if (char && char.row >= 0) {
-                const d = getKingDistance(char.row, char.col, r, c);
-                if (d > 0 && d <= char.pm) {
-                    moveCharacterTo(r, c);
-                }
-            }
-        }
-    } else if (selectedCharId && !placementMode && tool !== 'crop') {
-        const char = characters.find(c => c.id === selectedCharId);
-        if (char && char.row >= 0) {
-            const d = getKingDistance(char.row, char.col, r, c);
-            if (d > 0 && d <= char.pm && tool !== 'destroy' && tool !== 'repair') {
-                moveCharacterTo(r, c);
-            }
-        }
-    }
-}
-
 function renderCharacterList() {
     const container = document.getElementById('charListContainer');
     if (!container) return;
@@ -728,54 +542,20 @@ function renderCharacterList() {
         card.className = 'char-card' + (ch.id === selectedCharId ? ' selected' : '');
         card.onclick = () => selectCharacter(ch.id);
 
-        const pmPct = Math.round((ch.pm / ch.maxPM) * 100);
-        const pmColor = pmPct > 60 ? 'var(--green)' : pmPct > 30 ? 'var(--gold)' : 'var(--red)';
         const posText = ch.row >= 0 ? `[${ch.row}, ${ch.col}]` : 'Sin colocar';
 
         card.innerHTML = `
-            <div class="char-avatar" style="border-color:${ch.color}; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:rgba(0,0,0,0.3);">
+            <div class="char-avatar" style="border-color:${ch.color}; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:rgba(0,0,0,0.3); flex-shrink:0;">
                 ${typeof ch.avatar === 'string' && ch.avatar.startsWith('data:')
                     ? `<img src="${ch.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:2px;">`
                     : (ch.avatar || '🎭')}
             </div>
             <div class="char-info">
                 <div class="char-name">${ch.name}</div>
-                <div class="char-pos">📍 ${posText} &nbsp;|&nbsp; 🎯 Rango: ${ch.range}</div>
-                <div class="pm-text">PM: ${ch.pm}/${ch.maxPM}</div>
-                <div class="pm-bar-wrap">
-                    <div class="pm-bar" style="width:${pmPct}%; background-color:${pmColor};"></div>
-                </div>
+                <div class="char-pos">📍 ${posText}</div>
             </div>
         `;
         container.appendChild(card);
-    }
-}
-
-function updateIndividualMovePanel() {
-    const panel = document.getElementById('movePanel');
-    if (!panel) return;
-    const char = characters.find(c => c.id === selectedCharId);
-    const nameEl = document.getElementById('selectedCharNameMove');
-    if (nameEl) nameEl.textContent = char ? char.name : 'Sin selección';
-
-    const btns = document.getElementById('moveButtonsContainer');
-    if (btns) {
-        btns.innerHTML = `
-          <div class="move-row">
-            <button class="move-btn" onclick="moveCharacter(-1,-1)">↖</button>
-            <button class="move-btn" onclick="moveCharacter(-1,0)">↑</button>
-            <button class="move-btn" onclick="moveCharacter(-1,1)">↗</button>
-          </div>
-          <div class="move-row">
-            <button class="move-btn" onclick="moveCharacter(0,-1)">←</button>
-            <button class="move-btn center-btn">●</button>
-            <button class="move-btn" onclick="moveCharacter(0,1)">→</button>
-          </div>
-          <div class="move-row">
-            <button class="move-btn" onclick="moveCharacter(1,-1)">↙</button>
-            <button class="move-btn" onclick="moveCharacter(1,0)">↓</button>
-            <button class="move-btn" onclick="moveCharacter(1,1)">↘</button>
-          </div>`;
     }
 }
 
@@ -819,24 +599,6 @@ async function loadSelectedCity() {
         loadCityData(JSON.parse(text));
         addLogEntry(`📂 Cargado: ${fileName}`);
     } catch(e) { addLogEntry('❌ Error cargando archivo.'); }
-}
-
-async function saveProject() {
-    const data = getFullProjectData();
-    const json = JSON.stringify(data);
-    if (ciudadesHandle) {
-        try {
-            const name = prompt('Nombre del archivo:', `ciudad_${Date.now()}`) || `ciudad_${Date.now()}`;
-            const fh = await ciudadesHandle.getFileHandle(`${name}.json`, { create: true });
-            const writable = await fh.createWritable();
-            await writable.write(json);
-            await writable.close();
-            addLogEntry(`💾 Guardado: ${name}.json`);
-            await listCityFilesEditor();
-            return;
-        } catch(e) { addLogEntry('⚠️ Usando descarga...'); }
-    }
-    downloadData(json, `proyecto_${Date.now()}.json`);
 }
 
 // ─── Import/Export ────────────────────────────────────────
@@ -906,56 +668,5 @@ async function takeScreenshot() {
     } catch(e) { addLogEntry('❌ Error al tomar captura.'); }
 }
 
-// ═══════════════════════════════════════════════════════════
-// INTERCEPTADORES GLOBALES - COMPATIBILIDAD
-// ═══════════════════════════════════════════════════════════
-
-// Interceptador global en fase de captura (Garantiza compatibilidad absoluta con el DOM)
-document.addEventListener('click', function(e) {
-    const cell = e.target.closest('.cell');
-    if (cell && typeof selectedCharId !== 'undefined' && selectedCharId !== null) {
-        // Extraer coordenadas de atributos data-r/data-c o data-row/data-col
-        let r = parseInt(cell.getAttribute('data-r') || cell.getAttribute('data-row'));
-        let c = parseInt(cell.getAttribute('data-c') || cell.getAttribute('data-col'));
-        
-        // Alternativa si están guardados en el ID (ej: cell-5-10)
-        if (isNaN(r) || isNaN(c)) {
-            const matches = (cell.id || '').match(/\d+/g);
-            if (matches && matches.length >= 2) {
-                r = parseInt(matches[0]);
-                c = parseInt(matches[1]);
-            }
-        }
-        
-        if (!isNaN(r) && !isNaN(c) && typeof characters !== 'undefined') {
-            const char = characters.find(ch => ch.id == selectedCharId);
-            if (char) {
-                const moved = executeCharacterMovement(char, r, c);
-                if (moved) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                }
-            }
-        }
-    }
-}, true);
-
-// Vincular comportamiento correcto al botón de restaurar PM
-document.addEventListener('DOMContentLoaded', () => {
-    const resetBtn = document.getElementById('resetIndividualMoveBtn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
-            if (typeof selectedCharId !== 'undefined' && selectedCharId !== null && typeof characters !== 'undefined') {
-                const char = characters.find(ch => ch.id == selectedCharId);
-                if (char) {
-                    char.pm = char.pmMax || char.maxPM || 3; // Restaura a su máximo o 3 por defecto
-                    if (typeof addLogEntry === 'function') addLogEntry(`♻️ PM restaurados para ${char.name || 'personaje'}.`);
-                    if (typeof fullRender === 'function') fullRender();
-                    if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
-                }
-            }
-        });
-    }
-});
-
+// ─── Iniciar editor al cargar ──────────────────────────────
 document.addEventListener('DOMContentLoaded', initEditor);
