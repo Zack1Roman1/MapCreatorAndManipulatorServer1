@@ -38,7 +38,7 @@ function getCellType(cell) {
 
 /**
  * Construye el nombre completo formateado de una casilla
- * Formato: (Tipo) nombre personalizado
+ * Formato: Tipo -- nombre personalizado
  * @param {Object} cell - La celda del grid
  * @returns {string} Nombre completo formateado
  */
@@ -48,11 +48,11 @@ function getFormattedCellName(cell) {
     
     // Si hay nombre personalizado
     if (customName) {
-        return `(${cellType}) de ${customName}`;
+        return `${cellType} -- ${customName}`;
     }
     
     // Solo el tipo de casilla
-    return `(${cellType})`;
+    return cellType;
 }
 
 /**
