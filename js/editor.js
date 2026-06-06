@@ -500,7 +500,8 @@ function renderGrid() {
             }
 
             if (currentCellSize >= 24) {
-                el.title = cell.buildingName || (T[cell.terrain]?.name) || cell.terrain;
+                // BUG FIX: Usar getFormattedCellName para mostrar el formato correcto
+                el.title = getFormattedCellName(cell);
             }
 
             const charKey = `${r}_${c}`;
@@ -545,7 +546,7 @@ function renderCharacterList() {
         const posText = ch.row >= 0 ? `[${ch.row}, ${ch.col}]` : 'Sin colocar';
 
         card.innerHTML = `
-            <div class="char-avatar" style="border-color:${ch.color}; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:rgba(0,0,0,0.3); flex-shrink:0;">
+            <div class="char-avatar" style="border-color:${ch.color}; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:rgba(0,0,0,0.3);">
                 ${typeof ch.avatar === 'string' && ch.avatar.startsWith('data:')
                     ? `<img src="${ch.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:2px;">`
                     : (ch.avatar || '🎭')}
